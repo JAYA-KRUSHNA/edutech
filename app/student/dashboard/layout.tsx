@@ -18,15 +18,26 @@ export default function StudentDashboardLayout({ children }: { children: React.R
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [authError, setAuthError] = useState<'network' | null>(null);
 
   useEffect(() => {
     fetch('/api/student/me')
-      .then(res => res.json())
-      .then(data => {
-        if (data.user) setUser(data.user);
-        else router.push('/student/login');
+      .then(res => {
+        if (!res.ok) {
+          // Auth error (401/403) → redirect
+          router.push('/student/login');
+          return null;
+        }
+        return res.json();
       })
-      .catch(() => router.push('/student/login'));
+      .then(data => {
+        if (data?.user) setUser(data.user);
+        else if (data !== null) router.push('/student/login');
+      })
+      .catch(() => {
+        // Network error → show retry, don't redirect
+        setAuthError('network');
+      });
   }, [router]);
 
   const handleLogout = async () => {
@@ -41,6 +52,24 @@ export default function StudentDashboardLayout({ children }: { children: React.R
     { href: '/student/dashboard/references', icon: '📚', label: 'References' },
     { href: '/student/dashboard/nlp-analyzer', icon: '💬', label: 'NLP Analyzer' },
   ];
+
+  // Network error screen
+  if (authError === 'network') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="glass-card" style={{ padding: 32, textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
+          <h2 style={{ color: 'var(--text-1)', fontWeight: 700, marginBottom: 8 }}>Connection Error</h2>
+          <p style={{ color: 'var(--text-3)', fontSize: 14, marginBottom: 20 }}>
+            Unable to reach the server. Check your internet connection and try again.
+          </p>
+          <button onClick={() => window.location.reload()} className="btn-primary text-sm">
+            🔄 Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

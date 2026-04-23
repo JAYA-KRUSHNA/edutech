@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
+import { sanitizeSearch, sanitizeString, isValidUrl } from '@/lib/rate-limit';
 
-// GET - List all references (accessible by everyone who is logged in)
+// GET - List all references
 export async function GET(request: NextRequest) {
   const studentToken = request.cookies.get('student_token')?.value;
   const adminToken = request.cookies.get('admin_token')?.value;
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin.from('references_posts').select('*');
 
   if (search) {
-    query = query.or(`title.ilike.%${search}%,subject.ilike.%${search}%,description.ilike.%${search}%`);
+    const sanitized = sanitizeSearch(search);
+    if (sanitized) {
+      // Use separate ilike calls to avoid PostgREST filter injection
+      query = query.or(`title.ilike.%${sanitized}%,subject.ilike.%${sanitized}%,description.ilike.%${sanitized}%`);
+    }
   }
 
   if (sort === 'latest') {
@@ -55,17 +60,26 @@ export async function POST(request: NextRequest) {
   if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
   try {
-    const { title, description, url, subject } = await request.json();
+    const body = await request.json();
+    const title = sanitizeString(body.title, 200);
+    const description = sanitizeString(body.description, 2000);
+    const url = sanitizeString(body.url, 2000);
+    const subject = sanitizeString(body.subject, 100);
 
     if (!title || !url || !subject) {
       return NextResponse.json({ error: 'Title, URL, and subject are required' }, { status: 400 });
+    }
+
+    // Validate URL format
+    if (!isValidUrl(url)) {
+      return NextResponse.json({ error: 'URL must start with http:// or https://' }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
       .from('references_posts')
       .insert({
         title,
-        description: description || '',
+        description,
         url,
         subject,
         posted_by_id: payload.id,

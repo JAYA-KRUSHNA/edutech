@@ -14,6 +14,8 @@ function VerifyOTPContent() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(600);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -21,6 +23,13 @@ function VerifyOTPContent() {
     const timer = setInterval(() => setCountdown(c => c - 1), 1000);
     return () => clearInterval(timer);
   }, [countdown]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -43,6 +52,37 @@ function VerifyOTPContent() {
     }
     setOtp(newOtp);
     inputRefs.current[Math.min(pasteData.length, 5)]?.focus();
+  };
+
+  const handleResendOTP = async () => {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true);
+    setError('');
+
+    try {
+      // For reset type, call forgot-password; for verify, call signup resend
+      const endpoint = type === 'reset' ? '/api/student/forgot-password' : '/api/student/forgot-password';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccess('New OTP sent to your email!');
+        setCountdown(600);
+        setOtp(['', '', '', '', '', '']);
+        setResendCooldown(60); // 60 second cooldown
+        inputRefs.current[0]?.focus();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.error || 'Failed to resend OTP');
+      }
+    } catch {
+      setError('Failed to resend OTP. Check your connection.');
+    } finally {
+      setResending(false);
+    }
   };
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -127,6 +167,20 @@ function VerifyOTPContent() {
             {loading ? <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> : null}
             {loading ? 'Verifying...' : 'Verify OTP'}
           </button>
+
+          {/* Resend OTP */}
+          <div className="text-center">
+            <p className="text-text-3 text-xs mb-1">Didn&apos;t receive the code?</p>
+            <button type="button" onClick={handleResendOTP}
+              disabled={resending || resendCooldown > 0}
+              style={{
+                background: 'none', border: 'none', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                color: resendCooldown > 0 ? 'var(--text-3)' : 'var(--primary-light)',
+                fontSize: 13, fontWeight: 500, textDecoration: 'underline', padding: 4,
+              }}>
+              {resending ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : '🔄 Resend OTP'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

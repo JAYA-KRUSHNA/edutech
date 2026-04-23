@@ -20,7 +20,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
 
-    const result = await analyzeText(text);
+    // Cap text length to prevent model overload
+    const trimmedText = text.trim().slice(0, 10000);
+
+    if (trimmedText.length < 10) {
+      return NextResponse.json({ error: 'Text must be at least 10 characters long' }, { status: 400 });
+    }
+
+    const result = await analyzeText(trimmedText);
 
     return NextResponse.json({
       ...result,

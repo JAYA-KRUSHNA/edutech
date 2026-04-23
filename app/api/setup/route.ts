@@ -1,12 +1,36 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase';
 
-export async function POST() {
+// GET - Health check (no auth required)
+export async function GET() {
+  try {
+    const { error } = await supabaseAdmin.from('students').select('id').limit(1);
+    if (error) {
+      return NextResponse.json({ status: 'error', message: 'Database not ready', error: error.message }, { status: 503 });
+    }
+    return NextResponse.json({ status: 'ok', message: 'EduTech API is running' });
+  } catch {
+    return NextResponse.json({ status: 'error', message: 'Database connection failed' }, { status: 503 });
+  }
+}
+
+// POST - Setup database & seed super admin (protected by env key)
+export async function POST(request: NextRequest) {
+  // Protect setup with env key in production
+  const setupKey = process.env.SETUP_KEY;
+  if (setupKey) {
+    const { searchParams } = new URL(request.url);
+    const providedKey = searchParams.get('key');
+    if (providedKey !== setupKey) {
+      return NextResponse.json({ error: 'Invalid setup key' }, { status: 403 });
+    }
+  }
+
   const results: string[] = [];
   const errors: string[] = [];
 
-  // Step 1: Test connection by trying to query students
+  // Step 1: Test connection
   try {
     const { error: testError } = await supabaseAdmin.from('students').select('id').limit(1);
     if (testError && testError.message.includes('does not exist')) {

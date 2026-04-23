@@ -2,13 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase';
 import { signToken } from '@/lib/auth';
+import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    const { reg_no, password } = await request.json();
+    const body = await request.json();
+    const reg_no = (body.reg_no || '').trim();
+    const password = (body.password || '').trim();
 
     if (!reg_no || !password) {
       return NextResponse.json({ error: 'Registration number and password are required' }, { status: 400 });
+    }
+
+    // Rate limit by reg_no (prevents brute force)
+    const rl = checkRateLimit(`login:${reg_no}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      const mins = Math.ceil(rl.retryAfterMs / 60000);
+      return NextResponse.json({ error: `Too many login attempts. Try again in ${mins} minute(s).` }, { status: 429 });
     }
 
     // Find student
@@ -31,6 +41,9 @@ export async function POST(request: NextRequest) {
     if (!valid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    // Reset rate limit on successful login
+    resetRateLimit(`login:${reg_no}`);
 
     // Generate token
     const token = await signToken({

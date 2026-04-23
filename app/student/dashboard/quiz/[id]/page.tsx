@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 interface Question {
@@ -28,6 +28,7 @@ export default function TakeQuiz() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [canAttempt, setCanAttempt] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [started, setStarted] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -37,21 +38,46 @@ export default function TakeQuiz() {
 
   useEffect(() => {
     fetch(`/api/quiz/${quizId}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load quiz');
+        return res.json();
+      })
       .then(data => {
         setQuiz(data.quiz);
         setQuestions(data.questions || []);
         setCanAttempt(data.can_attempt);
       })
+      .catch(err => setFetchError(err.message))
       .finally(() => setLoading(false));
   }, [quizId]);
 
-  // Timer
+  // Timer — persists start time in sessionStorage
   useEffect(() => {
     if (!started || result) return;
-    const t = setInterval(() => setTimer(prev => prev + 1), 1000);
+    const storageKey = `quiz_start_${quizId}`;
+    let startTime = parseInt(sessionStorage.getItem(storageKey) || '0');
+    if (!startTime) {
+      startTime = Date.now();
+      sessionStorage.setItem(storageKey, startTime.toString());
+    }
+    const updateTimer = () => setTimer(Math.floor((Date.now() - startTime) / 1000));
+    updateTimer();
+    const t = setInterval(updateTimer, 1000);
     return () => clearInterval(t);
+  }, [started, result, quizId]);
+
+  // Warn before leaving during quiz
+  const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
+    if (started && !result) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
   }, [started, result]);
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [handleBeforeUnload]);
 
   const selectAnswer = (questionId: string, optIdx: number) => {
     setAnswers(prev => ({ ...prev, [questionId]: optIdx }));
@@ -71,11 +97,13 @@ export default function TakeQuiz() {
       const data = await res.json();
       if (res.ok) {
         setResult(data);
+        // Clean up timer
+        sessionStorage.removeItem(`quiz_start_${quizId}`);
       } else {
         alert(data.error);
       }
     } catch {
-      alert('Failed to submit');
+      alert('Failed to submit. Check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -88,6 +116,14 @@ export default function TakeQuiz() {
   };
 
   if (loading) return <div style={{ padding: 64, textAlign: 'center' }}><span className="spinner" /></div>;
+  if (fetchError) return (
+    <div style={{ padding: 64, textAlign: 'center' }}>
+      <div className="glass-card" style={{ padding: 32, maxWidth: 400, margin: '0 auto' }}>
+        <p style={{ color: 'var(--danger)', fontSize: 16, marginBottom: 12 }}>⚠️ {fetchError}</p>
+        <button onClick={() => window.location.reload()} className="btn-primary text-sm">Retry</button>
+      </div>
+    </div>
+  );
   if (!quiz) return <div style={{ padding: 64, textAlign: 'center', color: 'var(--text-3)' }}>Quiz not found</div>;
 
   // Result screen

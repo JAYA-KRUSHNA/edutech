@@ -17,21 +17,50 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
   const pathname = usePathname();
   const [user, setUser] = useState<AdminUser | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [authError, setAuthError] = useState<'network' | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/me')
-      .then(res => res.json())
-      .then(data => {
-        if (data.user) setUser(data.user);
-        else router.push('/admin/login');
+      .then(res => {
+        if (!res.ok) {
+          router.push('/admin/login');
+          return null;
+        }
+        return res.json();
       })
-      .catch(() => router.push('/admin/login'));
+      .then(data => {
+        if (data?.user) setUser(data.user);
+        else if (data !== null) router.push('/admin/login');
+      })
+      .catch(() => {
+        setAuthError('network');
+      });
   }, [router]);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     await fetch('/api/admin/logout', { method: 'POST' });
     router.push('/admin/login');
   };
+
+  // Network error screen
+  if (authError === 'network') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="glass-card" style={{ padding: 32, textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
+          <h2 style={{ color: 'var(--text-1)', fontWeight: 700, marginBottom: 8 }}>Connection Error</h2>
+          <p style={{ color: 'var(--text-3)', fontSize: 14, marginBottom: 20 }}>
+            Unable to reach the server. Check your internet connection and try again.
+          </p>
+          <button onClick={() => window.location.reload()} className="btn-primary text-sm">
+            🔄 Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -107,9 +136,9 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
             )}
           </div>
           {sidebarOpen && (
-            <button onClick={handleLogout}
+            <button onClick={handleLogout} disabled={loggingOut}
               style={{ marginTop: 10, width: '100%', padding: '8px 12px', textAlign: 'left', fontSize: 12, color: 'var(--text-3)', cursor: 'pointer', background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 10, transition: 'all 0.2s ease' }}>
-              🚪 Sign Out
+              {loggingOut ? 'Logging out...' : '🚪 Sign Out'}
             </button>
           )}
         </div>

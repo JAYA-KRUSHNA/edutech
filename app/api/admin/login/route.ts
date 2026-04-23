@@ -2,13 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase';
 import { signToken } from '@/lib/auth';
+import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const email = (body.email || '').trim().toLowerCase();
+    const password = (body.password || '').trim();
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    }
+
+    // Rate limit by email
+    const rl = checkRateLimit(`admin-login:${email}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      const mins = Math.ceil(rl.retryAfterMs / 60000);
+      return NextResponse.json({ error: `Too many login attempts. Try again in ${mins} minute(s).` }, { status: 429 });
     }
 
     // Find admin
@@ -26,6 +36,9 @@ export async function POST(request: NextRequest) {
     if (!valid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    // Reset rate limit on success
+    resetRateLimit(`admin-login:${email}`);
 
     const token = await signToken({
       id: admin.id,

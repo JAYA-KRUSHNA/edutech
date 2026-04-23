@@ -2,18 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateOTP, sendOTPEmail } from '@/lib/mailer';
+import { checkRateLimit, sanitizeString } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    const { reg_no, password, email, full_name } = await request.json();
+    const body = await request.json();
+    const reg_no = sanitizeString(body.reg_no, 20);
+    const password = body.password?.trim() || '';
+    const email = sanitizeString(body.email, 100).toLowerCase();
+    const full_name = sanitizeString(body.full_name, 100);
 
     if (!reg_no || !password || !email || !full_name) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
+    // Rate limit by email
+    const rl = checkRateLimit(`signup:${email}`, 3, 10 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many signup attempts. Try again later.' }, { status: 429 });
+    }
+
     // Validate email domain
     if (!email.endsWith('@rgmcet.edu.in')) {
       return NextResponse.json({ error: 'Email must end with @rgmcet.edu.in' }, { status: 400 });
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+    }
+    if (password.length > 128) {
+      return NextResponse.json({ error: 'Password is too long' }, { status: 400 });
+    }
+
+    // Validate reg_no format
+    if (reg_no.length < 4 || reg_no.length > 20) {
+      return NextResponse.json({ error: 'Invalid registration number' }, { status: 400 });
     }
 
     // Check if reg_no or email already exists
@@ -40,9 +64,10 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate OTP
+    // Generate and hash OTP
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
+    const hashedOtp = await bcrypt.hash(otp, 10);
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     // Store student (unverified)
     const { error: insertError } = await supabaseAdmin
@@ -53,7 +78,7 @@ export async function POST(request: NextRequest) {
         email,
         full_name,
         is_verified: false,
-        otp,
+        otp: hashedOtp,
         otp_expires_at: otpExpiry,
       });
 
@@ -62,7 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
     }
 
-    // Send OTP
+    // Send OTP (send plaintext to email, store hash in DB)
     const sent = await sendOTPEmail(email, otp, 'verify');
     if (!sent) {
       return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });

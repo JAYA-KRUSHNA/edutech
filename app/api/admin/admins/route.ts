@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { verifyToken } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
+import { isValidEmail, sanitizeString } from '@/lib/rate-limit';
 
 // GET - List admins (super admin only)
 export async function GET(request: NextRequest) {
@@ -31,10 +32,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Only super admins can add admins' }, { status: 403 });
   }
 
-  const { email, password, full_name } = await request.json();
+  const body = await request.json();
+  const email = sanitizeString(body.email, 100).toLowerCase();
+  const password = (body.password || '').trim();
+  const full_name = sanitizeString(body.full_name, 100);
 
   if (!email || !password || !full_name) {
     return NextResponse.json({ error: 'Email, password, and full name are required' }, { status: 400 });
+  }
+
+  // Validate email format
+  if (!isValidEmail(email)) {
+    return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+  }
+
+  // Validate password strength
+  if (password.length < 6) {
+    return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+  }
+  if (password.length > 128) {
+    return NextResponse.json({ error: 'Password is too long' }, { status: 400 });
+  }
+
+  // Validate name
+  if (full_name.length < 2) {
+    return NextResponse.json({ error: 'Full name must be at least 2 characters' }, { status: 400 });
   }
 
   // Check if admin exists
