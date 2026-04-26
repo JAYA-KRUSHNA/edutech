@@ -32,8 +32,10 @@ export async function GET(request: NextRequest) {
       confidence: result.confidence,
       probabilities: result.probabilities,
       features: result.features,
+      featureImportance: result.featureImportance,
+      ensembleAgreement: result.ensembleAgreement,
       totalAttempts: (attempts || []).length,
-      model: 'ANN (4→16→8→4 Softmax)',
+      model: 'ANN Ensemble×3 (8→48→24→12→4 Softmax)',
     });
   } catch (error) {
     console.error('Classification error:', error);

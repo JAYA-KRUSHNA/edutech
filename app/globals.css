@@ -553,8 +553,115 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* ===================== TOAST NOTIFICATIONS ===================== */
+.toast-container {
+  position: fixed; top: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  padding: 14px 20px; border-radius: var(--radius);
+  backdrop-filter: blur(20px); min-width: 280px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 500;
+  animation: toastSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.toast-success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.25); color: var(--success-light); }
+.toast-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.25); color: var(--danger-light); }
+.toast-info { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25); color: var(--primary-light); }
+@keyframes toastSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ===================== COUNTER ANIMATION ===================== */
+@keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-count { animation: countUp 0.6s ease-out forwards; }
+
+/* ===================== FILTER CHIPS ===================== */
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 14px; border-radius: var(--radius-full);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  color: var(--text-3); transition: all 0.25s ease;
+}
+.filter-chip:hover { background: var(--glass-hover); color: var(--text-2); border-color: var(--glass-border-hover); }
+.filter-chip.active {
+  background: rgba(99,102,241,0.12); color: var(--primary-light);
+  border-color: rgba(99,102,241,0.3); box-shadow: 0 0 12px rgba(99,102,241,0.08);
+}
+
+/* ===================== AURORA CARD ===================== */
+.aurora-card {
+  position: relative; overflow: hidden;
+  background: var(--glass); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+}
+.aurora-card::before {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; z-index: -1;
+  background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(34,211,238,0.15), rgba(139,92,246,0.2), rgba(244,63,94,0.1));
+  background-size: 300% 300%; animation: auroraShift 8s ease-in-out infinite;
+}
+@keyframes auroraShift {
+  0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; }
+}
+
+/* ===================== MODAL ===================== */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; animation: fadeIn 0.2s ease;
+}
+.modal-content {
+  background: var(--bg-secondary); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg); max-width: 520px; width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5); animation: scaleIn 0.3s ease-out;
+  max-height: 90vh; overflow-y: auto;
+}
+
+/* ===================== TYPING ANIMATION ===================== */
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+.typing-cursor { animation: blink 0.8s step-end infinite; }
+
+/* ===================== CONFETTI ===================== */
+@keyframes confettiFall {
+  0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* ===================== MOBILE BOTTOM NAV ===================== */
+.mobile-bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  background: rgba(6,8,15,0.95); backdrop-filter: blur(20px);
+  border-top: 1px solid var(--glass-border);
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 6px 0 env(safe-area-inset-bottom, 6px);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+}
+.mobile-nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 12px; border-radius: 12px; font-size: 10px; font-weight: 500;
+  color: var(--text-3); text-decoration: none; transition: all 0.2s ease;
+  min-width: 56px;
+}
+.mobile-nav-item.active { color: var(--primary-light); background: rgba(99,102,241,0.08); }
+.mobile-nav-item .nav-icon { font-size: 20px; line-height: 1; }
+
+/* ===================== SCROLL REVEAL ===================== */
+.reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 768px) {
   .auth-card { padding: 24px; max-width: 100%; }
   .otp-input { width: 44px; height: 48px; font-size: 18px; }
+  .page-header h1 { font-size: 20px; }
+  .glass-card { border-radius: 14px; }
+  .data-table { display: block; overflow-x: auto; }
+}
+@media (max-width: 640px) {
+  .page-header { margin-bottom: 20px; padding-bottom: 16px; }
+  body { padding-bottom: 72px; }
 }

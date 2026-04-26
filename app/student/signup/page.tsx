@@ -30,43 +30,26 @@ export default function StudentSignup() {
   };
 
   const strength = passwordStrength();
+  const passwordsMatch = form.confirm.length > 0 && form.password === form.confirm;
+  const passwordsMismatch = form.confirm.length > 0 && form.password !== form.confirm;
+
+  // Step indicator
+  const step = 1; // Step 1: Details, Step 2: Verify OTP, Step 3: Done
+  const steps = ['Details', 'Verify', 'Done'];
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!form.email.endsWith('@rgmcet.edu.in')) {
-      setError('Email must end with @rgmcet.edu.in');
-      return;
-    }
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-    if (form.password !== form.confirm) {
-      setError('Passwords do not match');
-      return;
-    }
-
+    if (!form.email.endsWith('@rgmcet.edu.in')) { setError('Email must end with @rgmcet.edu.in'); return; }
+    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
     setLoading(true);
-
     try {
-      const res = await fetch('/api/student/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reg_no: form.reg_no, full_name: form.full_name,
-          email: form.email, password: form.password,
-        }),
-      });
+      const res = await fetch('/api/student/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reg_no: form.reg_no, full_name: form.full_name, email: form.email, password: form.password }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       router.push(`/student/verify-otp?email=${encodeURIComponent(form.email)}&type=verify`);
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Something went wrong. Please try again.'); } finally { setLoading(false); }
   };
 
   return (
@@ -74,6 +57,24 @@ export default function StudentSignup() {
       <div className="absolute top-[20%] right-[8%] w-56 h-56 rounded-full" style={{ background: 'radial-gradient(circle, rgba(34,211,238,0.07) 0%, transparent 70%)', filter: 'blur(50px)' }} />
 
       <div className="auth-card animate-scale-in" style={{ maxWidth: 460 }}>
+        {/* Step Indicator */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24 }}>
+          {steps.map((s, i) => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                background: i < step ? 'var(--success)' : i === step - 1 ? 'var(--primary)' : 'var(--glass)',
+                color: i <= step - 1 ? 'white' : 'var(--text-3)',
+                border: `1px solid ${i <= step - 1 ? 'transparent' : 'var(--glass-border)'}`,
+              }}>
+                {i < step - 1 ? '✓' : i + 1}
+              </div>
+              <span style={{ fontSize: 11, color: i === step - 1 ? 'var(--text-1)' : 'var(--text-3)', fontWeight: i === step - 1 ? 600 : 400 }}>{s}</span>
+              {i < steps.length - 1 && <div style={{ width: 20, height: 1, background: i < step - 1 ? 'var(--success)' : 'var(--glass-border)' }} />}
+            </div>
+          ))}
+        </div>
+
         <div className="text-center mb-8">
           <div className="auth-icon-wrap mb-4 mx-auto" style={{ background: 'rgba(34,211,238,0.1)' }}>✨</div>
           <h1 className="text-2xl font-bold text-text-1">Create Account</h1>
@@ -84,42 +85,37 @@ export default function StudentSignup() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="reg_no" className="label-text">Reg. Number</label>
-              <input id="reg_no" name="reg_no" type="text" className="input-field"
-                placeholder="22B01A0501" value={form.reg_no} onChange={handleChange} required />
+              <input id="reg_no" name="reg_no" type="text" className="input-field" placeholder="22B01A0501" value={form.reg_no} onChange={handleChange} required />
             </div>
             <div>
               <label htmlFor="full_name" className="label-text">Full Name</label>
-              <input id="full_name" name="full_name" type="text" className="input-field"
-                placeholder="Your name" value={form.full_name} onChange={handleChange} required />
+              <input id="full_name" name="full_name" type="text" className="input-field" placeholder="Your name" value={form.full_name} onChange={handleChange} required />
             </div>
           </div>
 
           <div>
             <label htmlFor="email" className="label-text">College Email</label>
-            <input id="email" name="email" type="email" className="input-field"
-              placeholder="yourname@rgmcet.edu.in" value={form.email} onChange={handleChange} required />
+            <input id="email" name="email" type="email" className="input-field" placeholder="yourname@rgmcet.edu.in" value={form.email} onChange={handleChange} required />
             <p className="text-xs text-text-3 mt-1.5 flex items-center gap-1">
-              <span style={{ color: 'var(--accent)', fontSize: 10 }}>●</span> Must end with @rgmcet.edu.in
+              <span style={{ color: form.email.endsWith('@rgmcet.edu.in') ? 'var(--success)' : 'var(--accent)', fontSize: 10 }}>
+                {form.email.endsWith('@rgmcet.edu.in') ? '✓' : '●'}
+              </span>
+              Must end with @rgmcet.edu.in
             </p>
           </div>
 
           <div>
             <label htmlFor="password" className="label-text">Password</label>
             <div className="relative">
-              <input id="password" name="password" type={showPassword ? 'text' : 'password'} className="input-field"
-                style={{ paddingRight: 48 }}
-                placeholder="Min 6 characters" value={form.password} onChange={handleChange} required />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-3 hover:text-text-2 text-sm"
-                onClick={() => setShowPassword(!showPassword)}>
+              <input id="password" name="password" type={showPassword ? 'text' : 'password'} className="input-field" style={{ paddingRight: 48 }} placeholder="Min 6 characters" value={form.password} onChange={handleChange} required />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-3 hover:text-text-2 text-sm" onClick={() => setShowPassword(!showPassword)}>
                 {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
             {form.password && (
               <div className="mt-2 flex items-center gap-2">
                 <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--glass)' }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{
-                    width: `${(strength.level / 3) * 100}%`, background: strength.color,
-                  }} />
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(strength.level / 3) * 100}%`, background: strength.color }} />
                 </div>
                 <span className="text-xs font-medium" style={{ color: strength.color }}>{strength.label}</span>
               </div>
@@ -128,8 +124,15 @@ export default function StudentSignup() {
 
           <div>
             <label htmlFor="confirm" className="label-text">Confirm Password</label>
-            <input id="confirm" name="confirm" type="password" className="input-field"
-              placeholder="Re-enter password" value={form.confirm} onChange={handleChange} required />
+            <div className="relative">
+              <input id="confirm" name="confirm" type="password" className="input-field" style={{ paddingRight: 48 }} placeholder="Re-enter password" value={form.confirm} onChange={handleChange} required />
+              {form.confirm.length > 0 && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">
+                  {passwordsMatch ? <span style={{ color: 'var(--success)' }}>✓</span> : <span style={{ color: 'var(--danger)' }}>✕</span>}
+                </span>
+              )}
+            </div>
+            {passwordsMismatch && <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>Passwords don&apos;t match</p>}
           </div>
 
           {error && (

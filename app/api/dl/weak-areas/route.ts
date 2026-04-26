@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ...result,
-      model: 'Denoising Autoencoder (Anomaly Detection)',
+      model: 'Denoising Autoencoder v2 (L2 + Noise Injection)',
     });
   } catch (error) {
     console.error('Weak areas error:', error);

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ...result,
-      model: 'NCF (User×Item Embedding + MLP)',
+      model: 'NeuMF v2 (GMF⊙12 + MLP(48→24→12))',
     });
   } catch (error) {
     console.error('Recommendation error:', error);

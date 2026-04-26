@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ...result,
       totalAttempts: (attempts || []).length,
-      model: 'LSTM (Sequence → Prediction)',
+      model: 'Stacked LSTM(32→16) + MC Dropout',
     });
   } catch (error) {
     console.error('Prediction error:', error);

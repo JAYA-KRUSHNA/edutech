@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...result,
-      model: 'BoW + Feedforward (Topic Classifier)',
+      model: 'BoW + FFN v2 (48→24→8 Softmax + NER)',
     });
   } catch (error) {
     console.error('NLP analysis error:', error);
